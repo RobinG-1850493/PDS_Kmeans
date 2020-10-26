@@ -1,0 +1,3 @@
+C:/Users/Robin/Desktop/seqKmeans/CMakeFiles/kmeans.dir
+C:/Users/Robin/Desktop/seqKmeans/CMakeFiles/ALL_BUILD.dir
+C:/Users/Robin/Desktop/seqKmeans/CMakeFiles/ZERO_CHECK.dir
