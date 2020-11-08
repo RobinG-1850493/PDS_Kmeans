@@ -5,6 +5,8 @@
 #include "CSVReader.hpp"
 #include "CSVWriter.hpp"
 
+#include <omp.h>
+
 
 using namespace std;
 
@@ -40,6 +42,8 @@ class SerialKmeans {
            * check if the trace parameter has been used by the user.
            * if it has not been used, there is no need to open a stream. 
            */
+
+          //NIET PARALLEL
           if(trace != ""){
                traceStream.open(trace, ios_base::trunc);
           }
@@ -51,6 +55,8 @@ class SerialKmeans {
       * 
       * Pick k centroids by using random with specific seed from the data.
       */
+
+     // NIET DE MOEITE OM FOR PARALLEL TE MAKEN, MEER OVERHEAD DAN REKENWERK
      void initializeCentroids(){
           for(int i = 0; i < k; i++){
                centroids.push_back(data[0 + rand() % data.size()]);
@@ -66,7 +72,7 @@ class SerialKmeans {
      void kMeans(){
           vector<vector<double>> upCentroids;
           
-          for(int i = 0; i < repetitions; i++){
+          for(int i = 0; i < repetitions; i++) {
                centroids.clear();
                newCentroids.clear();
                clusters.clear();
@@ -116,13 +122,22 @@ class SerialKmeans {
      double costFunction(vector<vector<double>> upCentroids){
           double total = 0;
 
-          for(int i = 0; i < data.size(); i++){  
-               for(int j = 0; j < k; j++){   
-                    if(clusters[i] == j){
-                         total += euclidDistance(data[i], upCentroids[j]);
+          //Als je hier een atomic zet op total denk ik niet dat het sneller gaat zijn
+          // alle threads moeten wachten om daar iets aan toe te voegen?
+
+          #pragma omp parallel
+          {
+               #pragma omp for schedule(static)
+               for(int i = 0; i < data.size(); i++){  
+                    for(int j = 0; j < k; j++){   
+                         if(clusters[i] == j){
+                              #pragma omp atomic
+                              total += euclidDistance(data[i], upCentroids[j]);
+                         }
                     }
                }
           }
+          
 
           return total;
      }
@@ -130,6 +145,8 @@ class SerialKmeans {
      /**
       * Writes the output of each repetition to the output file.
       */
+
+     //NIET PARALLEL
      void writeOutputCSV(){
           ofstream outStream(output, ios_base::trunc); 
           CSVWriter writer(outStream);
@@ -140,6 +157,8 @@ class SerialKmeans {
      /**
       * Writes the trace of each iteration to the trace file.
       */
+
+     //NIET PARALLEL
      void writeTraceCSV(){
           CSVWriter writer(traceStream);
           writer.write(clusters);
@@ -151,11 +170,43 @@ class SerialKmeans {
       * This function calculates the lowest distance between the points and the chosen centroids.
       */
      void getClosestCentroid(){
-          double currentDist, lowestDist = 1000000000, clusterOfLowestDistance;
-
+          //double currentDist, lowestDist = 1000000000, clusterOfLowestDistance;
+          double clusterOfLowestDistance;
+          
           clusters.clear();
+          
+          #pragma omp parallel
+          {
+               double currentDist, lowestDist = 1000000000;
 
-          for(int i = 0; i < data.size(); i++){  
+               #pragma omp for schedule(static)
+               for(int i = 0; i < data.size(); i++){  
+                    for(int j = 0; j < k; j++){   
+                         if(data[i] != centroids[j]){
+                              currentDist = euclidDistance(data[i], centroids[j]);
+                               
+                              if(currentDist <= lowestDist){
+                                   lowestDist = currentDist;
+
+                                   #pragma omp critical
+                                   {
+                                        clusterOfLowestDistance = j;
+                                   }
+                              }  
+                         }
+                    }
+
+                    #pragma omp critical
+                    {
+                         clusters.push_back(clusterOfLowestDistance);
+                    }
+
+                    lowestDist = 1000000;
+               }
+          }
+
+          
+          /*for(int i = 0; i < data.size(); i++){  
                for(int j = 0; j < k; j++){   
                     if(data[i] != centroids[j]){
                          currentDist = euclidDistance(data[i], centroids[j]);
@@ -167,7 +218,7 @@ class SerialKmeans {
                }
                clusters.push_back(clusterOfLowestDistance);
                lowestDist = 1000000;
-          }
+          }*/
      }
 
      /* Updates the old centroids
@@ -177,29 +228,38 @@ class SerialKmeans {
      * @return a 2D vector with new Centroids.
      */
      vector<vector<double>> updateCentroids(){
-          double mean = 0, total = 0;
-          int cluster_size = 0;
-          int temp = 0;
+         
           vector<double> punt;
           newCentroids.clear();
 
           for(int i = 0; i < k; i++){
-               for(int j = 0; j < data[0].size(); j++){ 
-                    for(int a = 0; a < data.size(); a++){       
-                         if(clusters[a] == i){           
-                              total += data[a][j];
-                              cluster_size++;
-                         }    
-                    } 
+               #pragma omp parallel
+               {
+                    double mean = 0, total = 0;
+                    int cluster_size = 0;
+                    int temp = 0;
 
-                    mean = total / cluster_size;
-                    punt.push_back(mean);
-                    total= 0;
-                    mean = 0;
-                    cluster_size = 0;
+                    for(int j = 0; j < data[0].size(); j++){ 
+                         #pragma omp for schedule(static)
+                         for(int a = 0; a < data.size(); a++){       
+                              if(clusters[a] == i){           
+                                   #pragma omp atomic
+                                   total += data[a][j];
+                                   #pragma omp atomic
+                                   cluster_size++;
+                              }    
+                         } 
+
+                         mean = total / cluster_size;
+                         punt.push_back(mean);
+                         total= 0;
+                         mean = 0;
+                         cluster_size = 0;
+                    }
+                    newCentroids.push_back(punt);
+                    punt.clear();  
                }
-               newCentroids.push_back(punt);
-               punt.clear();
+               
           }
 
           return newCentroids;
@@ -215,13 +275,19 @@ class SerialKmeans {
      double euclidDistance(vector<double> punt, vector<double> centroid)
      {
           double dist;
-
-          for(int i = 0; i < punt.size(); i++){
-               double temp = punt[i] - centroid[i];
-               dist += pow(temp, 2);    
-          }           
-
-          dist = sqrt(dist); 
+          #pragma omp parallel
+          {
+               #pragma omp for schedule(static)
+               for(int i = 0; i < punt.size(); i++){
+                    double temp = punt[i] - centroid[i];
+                    #pragma omp atomic
+                    dist += pow(temp, 2);    
+               }           
+               
+               #pragma omp atomic
+               dist = sqrt(dist); 
+          }
+          
 
 	     return dist;
      }
