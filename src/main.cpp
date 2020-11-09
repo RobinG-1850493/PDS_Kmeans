@@ -4,6 +4,7 @@
 #include <cmath>
 #include "CSVReader.hpp"
 #include "CSVWriter.hpp"
+#include "Timer.hpp"
 
 #include <omp.h>
 
@@ -70,6 +71,8 @@ class SerialKmeans {
       * if specified by the user.
       */
      void kMeans(){
+          Timer t;
+          t.start();
           vector<vector<double>> upCentroids;
           
           for(int i = 0; i < repetitions; i++) {
@@ -109,9 +112,9 @@ class SerialKmeans {
                     endCluster = clusters;
                }
           }
-
+          t.stop();
+          cout << t.duration() << endl;
           if(output != ""){
-               cout << "enter write output";
                writeOutputCSV();
           }
      }
@@ -284,7 +287,7 @@ class SerialKmeans {
                     dist += pow(temp, 2);    
                }           
                
-               #pragma omp atomic
+               //#pragma omp atomic
                dist = sqrt(dist); 
           }
           
