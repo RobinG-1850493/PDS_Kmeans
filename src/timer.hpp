@@ -18,7 +18,7 @@ public:
 	}
 
 	double duration() {
-		return std::chrono::duration_cast<std::chrono::nanoseconds>(end - beg).count();
+		return std::chrono::duration_cast<std::chrono::milliseconds>(end - beg).count();
 	}
 private:
 	std::chrono::time_point<std::chrono::steady_clock> beg;
