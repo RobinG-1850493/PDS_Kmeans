@@ -16,7 +16,7 @@ class SerialKmeans {
      string output, trace;
      int random_var, seed;
 
-
+     
      /**
       * SerialKmeans constructor
       * 
@@ -69,9 +69,9 @@ class SerialKmeans {
           vector<double> endCluster;
           vector<vector<double>> centroids;
           vector<vector<double>> upCentroids;
-          Timer timer;
+          Timer timer1;
           
-          timer.start();
+          timer1.start();
           for(int i = 0; i < repetitions; i++){
                centroids.clear();
                clusters.clear();
@@ -89,7 +89,7 @@ class SerialKmeans {
                lowest_cost = costFunction(upCentroids, data, clusters, k);
                endCluster = clusters;
                
-               while(upCentroids != centroids){
+               while(upCentroids != centroids && counter < 500){
                     centroids = upCentroids;
                     upCentroids.clear();
                     clusters = getClosestCentroid(data, centroids, k);
@@ -108,8 +108,8 @@ class SerialKmeans {
                     endCluster = clusters;
                }
           }
-          timer.stop();
-          cout << timer.duration() << endl;
+          timer1.stop();
+          cout << timer1.duration() << endl;
           if(output != ""){
                writeOutputCSV(endCluster);
           }
@@ -160,6 +160,8 @@ class SerialKmeans {
           unsigned long data_size = data.size();
           unsigned long cluster_size = k;
           vector<double> clusters;
+          omp_set_dynamic(0);   
+          omp_set_num_threads(6);
           #pragma omp parallel
           {
                vector<double> priv_clusters;
@@ -260,21 +262,6 @@ static void readCSV(const string &input, vector<vector<double>> &data){
 
      while(reader.read(row)){
           data.push_back(row);
-     }
-}
-
-/* writes data into a CSV file
-*
-* This function writes data represented into an 2D vector to a CSV file.
-* @params iutput - the name of the CSV file you want to write to.
-* @params data - 2D vector which holds the data to write.
-*/
-static void writeCSV(const string &output, vector<vector<double>> &data){
-     ofstream outStream(output);
-	CSVWriter writer(outStream);
-
-     for(int i = 0; data.size(); i++){
-          writer.write(data[i]);
      }
 }
 
