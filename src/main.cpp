@@ -160,8 +160,7 @@ class SerialKmeans {
           unsigned long data_size = data.size();
           unsigned long cluster_size = k;
           vector<double> clusters;
-          omp_set_dynamic(0);   
-          omp_set_num_threads(6);
+
           #pragma omp parallel
           {
                vector<double> priv_clusters;
