@@ -205,20 +205,34 @@ class SerialKmeans {
           vector<double> punt;
           vector<vector<double>> newCentroids;
 
-          for(int i = 0; i < k; i++){
-               for(int j = 0; j < data[0].size(); j++){ 
-                    for(int a = 0; a < data.size(); a++){       
-                         if(clusters[a] == i){      
-                              total += data[a][j];
-                              cluster_size++;
-                         }    
-                    } 
+          int dim_size = data[0].size();
+          int n_size = data.size();
 
-                    mean = total / cluster_size;
-                    punt.push_back(mean);
-                    total= 0;
-                    mean = 0;
-                    cluster_size = 0;
+          for(int i = 0; i < k; i++){
+               #pragma omp parallel
+               {
+                    vector<double> priv_punt;
+                    #pragma omp for firstprivate(dim_size, n_size) private(mean, total, cluster_size) nowait schedule(static)
+                    for(int j = 0; j < dim_size; j++){ 
+                         total= 0;
+                         mean = 0;
+                         cluster_size = 0;
+                         for(int a = 0; a < n_size; a++){    
+                              double pt = data[a][j];   
+                              if(clusters[a] == i){      
+                                   total += pt;
+                                   cluster_size++;
+                              }    
+                         } 
+
+                         mean = total / cluster_size;
+                         priv_punt.push_back(mean);
+                    }
+                    #pragma omp for schedule(static) ordered
+                    for(int i = 0; i<omp_get_num_threads(); i++){
+                         #pragma omp ordered
+                         punt.insert(punt.end(), priv_punt.begin(), priv_punt.end());
+                    }                   
                }
                newCentroids.push_back(punt);
                punt.clear();
