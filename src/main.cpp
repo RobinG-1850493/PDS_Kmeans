@@ -65,19 +65,16 @@ class SerialKmeans {
      void kMeans(const vector<vector<double>> &data, int k, int repetitions){
           double cost;
           double lowest_cost = 1000000000;
+          int counter;
           vector<double> clusters;
           vector<double> endCluster;
           vector<vector<double>> centroids;
           vector<vector<double>> upCentroids;
-          Timer timer1;
-          Timer t;
-          
+
+          Timer timer1;  
           timer1.start();
           for(int i = 0; i < repetitions; i++){
-               centroids.clear();
-               clusters.clear();
-               int counter = 0;
-
+               counter = 0;
                
                centroids = initializeCentroids(data, k);
                clusters = getClosestCentroid(data, centroids, k);
@@ -165,7 +162,7 @@ class SerialKmeans {
           vector<double> clusters;
 
           #pragma omp parallel
-          {     
+          {    
                vector<double> priv_clusters;
                #pragma omp for firstprivate(data_size, cluster_size) private(lowestDist, clusterOfLowestDistance) nowait schedule(static)
                for(int i = 0; i < data_size; i++){  
@@ -211,6 +208,7 @@ class SerialKmeans {
           for(int i = 0; i < k; i++){
                #pragma omp parallel
                {
+                    //cout << omp_get_num_threads() << " threads";
                     vector<double> priv_punt;
                     #pragma omp for firstprivate(dim_size, n_size) private(total, cluster_size) nowait schedule(auto)
                     for(int j = 0; j < dim_size; j++){ 
